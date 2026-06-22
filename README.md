@@ -46,46 +46,6 @@
 
 ---
 
-
-### 환경변수
-
-| 변수 | 필수 | 설명 |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ | Claude API 키 (`sk-ant-...`) |
-| `CLAUDE_MODEL` | ❌ | 기본 `claude-opus-4-8`. 비용 절감 시 `claude-haiku-4-5` (약 1/5 비용) |
-| `OPENALEX_MAILTO` | ❌ | OpenAlex 정중한 요청용 이메일 (rate-limit 우대) |
-
-> 💡 **비용**: 검색 1회 = Claude 호출 1회. opus-4-8 기준 약 $0.1, haiku-4-5 기준 약 $0.02. 신규 가입 무료 크레딧으로 충분히 시연 가능.
-
-### 🔑 키 없이 체험 (폴백 모드)
-`ANTHROPIC_API_KEY` 가 없어도 앱은 **죽지 않고** 동작한다.
-- 트렌드 요약 → OpenAlex 데이터 기반 **템플릿 요약** (키 불필요)
-- 논문별 요약 → **초록을 잘라서** 표시
-- 오염 레코드 → 주제 **핵심어 매칭**으로 가볍게 필터링
-
-단, 이 모드에는 AI 요약·판단이 빠지므로 실제 제출/시연은 Claude 키 모드를 권장한다.
-
----
-
-## ☁️ Vercel 배포
-
-1. 이 코드를 GitHub 새 저장소에 push (아래 참고)
-2. [vercel.com](https://vercel.com) → **New Project** → 해당 GitHub 저장소 선택
-3. **Environment Variables** 에 `ANTHROPIC_API_KEY` 추가 (`CLAUDE_MODEL`, `OPENALEX_MAILTO` 선택)
-4. **Deploy** → 끝. 빌드 후 공개 URL 발급
-
-```bash
-# GitHub 새 저장소에 올리기 (예시)
-git init
-git add .
-git commit -m "PaperRoots: 연구 논문 계보 어시스턴트"
-git branch -M main
-git remote add origin https://github.com/<본인계정>/paperroots.git
-git push -u origin main
-```
-
----
-
 ## 🤝 AI 코딩 에이전트 활용 (Claude Code)
 
 이 프로젝트는 **Claude Code와 협업**해 설계·구현했다.
