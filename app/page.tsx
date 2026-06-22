@@ -160,6 +160,13 @@ export default function Home() {
 
       {data && !loading && (
         <div className="results">
+          {data.meta.mode === "fallback" && (
+            <div className="note info">
+              🔑 <b>초록 기반 모드</b>로 동작 중입니다 — Claude API 키가 설정되지 않아 AI 요약 대신
+              논문 초록을 보여줍니다. <code>.env.local</code> 에 <code>ANTHROPIC_API_KEY</code> 를
+              넣으면 AI가 작성한 트렌드 분석과 3줄 요약으로 바뀝니다.
+            </div>
+          )}
           <div className="trend">
             <h2>📈 {data.topic} — 분야 트렌드</h2>
             <p>{data.trendSummary}</p>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchTopicPapers, computeFoundational, type RawPaper } from "@/lib/openalex";
-import { generateBrief, activeModel, type PaperForSummary } from "@/lib/claude";
+import { generateBrief, activeModel, type PaperForSummary, type BriefResult } from "@/lib/claude";
+import { buildFallbackBrief } from "@/lib/fallback";
 import { ROLE_LABELS, type Paper, type ResearchRequest, type ResearchResponse, type Role } from "@/lib/types";
 
 // Vercel 서버리스 함수 최대 실행 시간 (검색 + Claude 호출에 여유 확보)
@@ -59,11 +60,7 @@ export async function POST(req: Request) {
       ...influential.map((p) => p.id),
       ...latest.map((p) => p.id),
     ]);
-    const foundationalRaw = (await computeFoundational(
-      influential,
-      seen,
-      controller.signal
-    )) as (Paper & { abstract: string })[];
+    const foundationalRaw = await computeFoundational(influential, seen, controller.signal);
 
     clearTimeout(timeout);
 
@@ -82,8 +79,27 @@ export async function POST(req: Request) {
 
     const roleLabel = ROLE_LABELS[role] || ROLE_LABELS.grad;
 
-    // 5) Claude 호출: 트렌드 + 3줄 요약 + 관련성 판단
-    const brief = await generateBrief(topic, roleLabel, landscapeTitles, toSummarize);
+    // 5) 브리프 생성 — 키가 있으면 Claude, 없으면 초록 기반 폴백
+    const hasKey = !!process.env.ANTHROPIC_API_KEY;
+    let brief: BriefResult;
+    let mode: "ai" | "fallback";
+    let modelLabel: string;
+
+    if (hasKey) {
+      brief = await generateBrief(topic, roleLabel, landscapeTitles, toSummarize);
+      mode = "ai";
+      modelLabel = activeModel();
+    } else {
+      brief = buildFallbackBrief(
+        topic,
+        [topic, extraKeywords].filter(Boolean).join(" "),
+        influential,
+        latestTop,
+        foundationalCandidates
+      );
+      mode = "fallback";
+      modelLabel = "초록 기반 (API 키 없음)";
+    }
     const judge = brief.judgements;
 
     // 6) 관련성 판단으로 거르고, 요약을 합친다
@@ -104,8 +120,9 @@ export async function POST(req: Request) {
       foundational: foundationalOut,
       meta: {
         analyzedCount: influential.length,
-        model: activeModel(),
+        model: modelLabel,
         elapsedMs: Date.now() - started,
+        mode,
       },
     };
 

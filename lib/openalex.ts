@@ -9,7 +9,7 @@ const MAILTO = process.env.OPENALEX_MAILTO || "research@example.com";
 // 필요한 필드만 선택해 응답 크기를 줄인다
 const SELECT =
   "id,title,display_name,publication_year,publication_date,cited_by_count," +
-  "referenced_works,abstract_inverted_index,authorships,primary_location,best_oa_location,doi";
+  "referenced_works,abstract_inverted_index,authorships,primary_location,best_oa_location,doi,topics";
 
 interface OAWork {
   id: string;
@@ -27,6 +27,7 @@ interface OAWork {
   } | null;
   best_oa_location: { landing_page_url: string | null; pdf_url: string | null } | null;
   doi: string | null;
+  topics: { id: string; display_name: string }[] | null;
 }
 
 /** abstract_inverted_index({단어: [위치들]}) 를 원래 초록 문자열로 복원 */
@@ -68,7 +69,12 @@ function url(work: OAWork): string {
   );
 }
 
-function toPaper(work: OAWork): Paper & { abstract: string } {
+function toPaper(work: OAWork): Paper & {
+  abstract: string;
+  topicIds: string[];
+  topicNames: string[];
+} {
+  const topics = work.topics || [];
   return {
     id: work.id.replace("https://openalex.org/", ""),
     title: work.title || work.display_name || "(제목 없음)",
@@ -78,6 +84,8 @@ function toPaper(work: OAWork): Paper & { abstract: string } {
     url: url(work),
     venue: work.primary_location?.source?.display_name || null,
     abstract: truncateWords(reconstructAbstract(work.abstract_inverted_index), 110),
+    topicIds: topics.map((t) => t.id.replace("https://openalex.org/", "")),
+    topicNames: topics.map((t) => t.display_name),
   };
 }
 
@@ -94,7 +102,12 @@ function buildQuery(topic: string, extraKeywords?: string): string {
 export interface RawPaper extends Paper {
   abstract: string;
   referencedWorks: string[];
+  topicIds: string[];
+  topicNames: string[];
 }
+
+/** computeFoundational 이 돌려주는, 부가 정보가 붙은 근간 논문 */
+export type FoundationalPaper = Paper & { abstract: string; topicIds: string[]; topicNames: string[] };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -168,7 +181,7 @@ export async function computeFoundational(
   excludeIds: Set<string>,
   signal?: AbortSignal,
   limit = 14
-): Promise<Paper[]> {
+): Promise<FoundationalPaper[]> {
   // 1) 모든 참고문헌을 모아 등장 빈도(= 몇 편의 핵심 논문이 인용했는지) 계산
   const freq = new Map<string, number>();
   for (const p of influential) {
@@ -195,7 +208,7 @@ export async function computeFoundational(
           signal
         )) as OAWork;
         const paper = toPaper(data);
-        return { ...paper, coCitedBy: coCited } as Paper & { abstract: string };
+        return { ...paper, coCitedBy: coCited } as FoundationalPaper;
       } catch {
         return null;
       }
@@ -203,7 +216,7 @@ export async function computeFoundational(
   );
 
   // 4) 공통 인용 수 → 전체 피인용 수 순으로 최종 정렬
-  return (fetched.filter(Boolean) as (Paper & { abstract: string })[]).sort(
+  return (fetched.filter(Boolean) as FoundationalPaper[]).sort(
     (a, b) => (b.coCitedBy || 0) - (a.coCitedBy || 0) || b.citationCount - a.citationCount
   );
 }

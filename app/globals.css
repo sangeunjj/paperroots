@@ -171,6 +171,18 @@ a {
   border: 1px solid #f3c4bd;
   color: #8a2d20;
 }
+.note.info {
+  background: var(--latest-soft);
+  border: 1px solid #c5d6e8;
+  color: #2c4a6b;
+  margin-bottom: 18px;
+}
+.note.info code {
+  background: #d9e4f0;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+}
 .loading {
   text-align: center;
   padding: 48px 0;

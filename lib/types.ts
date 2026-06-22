@@ -47,5 +47,7 @@ export interface ResearchResponse {
     analyzedCount: number;
     model: string;
     elapsedMs: number;
+    /** ai = Claude 요약, fallback = 키 없이 초록 기반 */
+    mode: "ai" | "fallback";
   };
 }
