@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 무슨 문제를 푸는가
+## 🎯 문제 정의
 
 특정 주제의 논문을 찾을 때, 구글 스칼라로 논문을 하나하나 뒤지고 그 논문이 **딛고 선 기초·근간 논문**을 역추적하는 일은 번거롭고 시간이 많이 든다. PaperRoots는 이 과정을 자동화한다.
 
@@ -46,21 +46,6 @@
 
 ---
 
-## 🚀 로컬 실행
-
-```bash
-# 1. 의존성 설치
-npm install
-
-# 2. 환경변수 설정
-cp .env.local.example .env.local
-#   → .env.local 을 열어 ANTHROPIC_API_KEY 를 본인 키로 채운다
-#     (https://console.anthropic.com 에서 발급)
-
-# 3. 개발 서버
-npm run dev
-#   → http://localhost:3000
-```
 
 ### 환경변수
 
@@ -109,5 +94,3 @@ git push -u origin main
 - 검증 과정에서 발견한 문제(관련성 낮은 검색 결과, 오염 레코드)를 함께 진단하고 해결
   - "피인용 정렬 → 관련성 우선 재정렬" 전환
   - "오염 레코드는 Claude가 관련성 판단으로 필터링"
-
-자세한 협업 과정은 발표자료(`PRESENTATION.md`) 참고.
