@@ -15,6 +15,18 @@ export interface ResearchRequest {
   topic: string;
   role: Role;
   extraKeywords?: string;
+  /** 검색할 기간 (년). 0 이면 전체 기간 */
+  yearRange?: number;
+  /** 무료로 볼 수 있는(오픈액세스) 논문만 */
+  openAccessOnly?: boolean;
+  /** 리뷰·서베이 논문 중심으로 (분야 개관에 유리) */
+  reviewFocus?: boolean;
+}
+
+export interface SearchOptions {
+  yearRange: number;
+  openAccessOnly: boolean;
+  reviewFocus: boolean;
 }
 
 /** 한 편의 논문 (OpenAlex + Claude 요약이 합쳐진 최종 형태) */

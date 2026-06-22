@@ -93,7 +93,6 @@ export function buildFallbackBrief(
   if (topFoundational) {
     parts.push(`이 분야의 근간이 되는 논문으로는 「${topFoundational.title}」 등이 자주 공통 인용됩니다.`);
   }
-  parts.push("(※ 이 요약은 Claude API 키가 없어 OpenAlex 데이터로 자동 생성한 템플릿 요약입니다. 키를 설정하면 AI가 작성한 트렌드 분석과 논문별 3줄 요약으로 바뀝니다.)");
 
   const trendSummary = parts.join(" ");
 

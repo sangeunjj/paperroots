@@ -34,6 +34,11 @@ export async function POST(req: Request) {
   const topic = (body.topic || "").trim();
   const role = (body.role || "grad") as Role;
   const extraKeywords = (body.extraKeywords || "").trim();
+  const opts = {
+    yearRange: typeof body.yearRange === "number" ? body.yearRange : 5,
+    openAccessOnly: !!body.openAccessOnly,
+    reviewFocus: !!body.reviewFocus,
+  };
 
   if (!topic) {
     return NextResponse.json({ error: "관심 주제를 입력해 주세요." }, { status: 400 });
@@ -45,7 +50,7 @@ export async function POST(req: Request) {
 
   try {
     // 1) OpenAlex: 핵심/최신 논문 검색
-    const { influential, latest } = await fetchTopicPapers(topic, extraKeywords, controller.signal);
+    const { influential, latest } = await fetchTopicPapers(topic, extraKeywords, opts, controller.signal);
 
     if (influential.length === 0 && latest.length === 0) {
       clearTimeout(timeout);

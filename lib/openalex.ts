@@ -1,7 +1,7 @@
 // OpenAlex API 연동 — 논문 검색 + 인용 그래프 기반 "근간 논문" 계산
 // OpenAlex 는 무료이며 API 키가 필요 없습니다. https://docs.openalex.org
 
-import type { Paper } from "./types";
+import type { Paper, SearchOptions } from "./types";
 
 const OPENALEX = "https://api.openalex.org";
 const MAILTO = process.env.OPENALEX_MAILTO || "research@example.com";
@@ -115,53 +115,73 @@ function toRaw(w: OAWork): RawPaper {
   return { ...toPaper(w), referencedWorks: w.referenced_works || [] };
 }
 
+/** 옵션을 OpenAlex filter 문자열로 조립 */
+function buildFilter(parts: (string | null)[]): string {
+  const f = parts.filter(Boolean).join(",");
+  return f ? `&filter=${f}` : "";
+}
+
 /**
  * 주제 검색. 핵심은 "관련성(relevance) 우선으로 후보를 모은 뒤, 그 안에서 재정렬"하는 것.
  * (OpenAlex 에서 곧장 피인용수로 정렬하면 주제와 무관한 고인용 논문이 섞여 들어온다.)
- *  - influential: 관련성 높은 최근 4년 논문 풀에서 피인용수 상위 = 분야의 현재 핵심 (근간 논문 추적의 토대)
- *  - latest: 관련성 높은 최근 2년 논문 풀에서 가장 최신
+ *  - influential: 관련성 높은 풀에서 피인용수 상위 = 분야의 현재 핵심 (근간 논문 추적의 토대)
+ *  - latest: 관련성 상위 풀에서 가장 최신
+ * 옵션(연도/오픈액세스/리뷰중심)으로 사용자가 정확도를 좁힐 수 있다.
  */
 export async function fetchTopicPapers(
   topic: string,
   extraKeywords: string | undefined,
+  opts: SearchOptions,
   signal?: AbortSignal
 ): Promise<{ influential: RawPaper[]; latest: RawPaper[] }> {
   const q = encodeURIComponent(buildQuery(topic, extraKeywords));
+  const oa = opts.openAccessOnly ? "is_oa:true" : null;
+  const review = opts.reviewFocus ? "type:review" : null;
 
-  // 관련성 기본 정렬(search 사용 시 relevance_score desc)로 넓게 가져온다
+  // influential 풀: 사용자가 고른 연도 범위 (전체면 날짜 필터 없음)
+  const infFilter = buildFilter([
+    opts.yearRange > 0 ? `from_publication_date:${isoYearsAgo(opts.yearRange)}` : null,
+    oa,
+    review,
+  ]);
   const influentialPoolUrl =
-    `${OPENALEX}/works?search=${q}` +
-    `&filter=from_publication_date:${isoYearsAgo(4)}` +
-    `&per_page=50&select=${SELECT}&mailto=${MAILTO}`;
+    `${OPENALEX}/works?search=${q}${infFilter}&per_page=60&select=${SELECT}&mailto=${MAILTO}`;
 
+  // latest 풀: 최신을 보려는 것이므로 좁은 최근 창(최대 3년) 사용
+  const latestWindow = opts.yearRange > 0 ? Math.min(opts.yearRange, 3) : 3;
+  const latFilter = buildFilter([
+    `from_publication_date:${isoYearsAgo(latestWindow)}`,
+    oa,
+    review,
+  ]);
   const latestPoolUrl =
-    `${OPENALEX}/works?search=${q}` +
-    `&filter=from_publication_date:${isoYearsAgo(2)}` +
-    `&per_page=40&select=${SELECT}&mailto=${MAILTO}`;
+    `${OPENALEX}/works?search=${q}${latFilter}&per_page=40&select=${SELECT}&mailto=${MAILTO}`;
 
   let [influentialRes, latestRes] = await Promise.all([
     oaFetch(influentialPoolUrl, signal),
     oaFetch(latestPoolUrl, signal),
   ]);
 
-  // 결과가 너무 적으면 날짜 필터를 풀어 한 번 더 (니치 주제 대응)
+  // 결과가 너무 적으면 필터를 풀어 한 번 더 (니치 주제/엄격한 옵션 대응)
   if ((influentialRes.results?.length ?? 0) < 5) {
     influentialRes = await oaFetch(
-      `${OPENALEX}/works?search=${q}&per_page=50&select=${SELECT}&mailto=${MAILTO}`,
+      `${OPENALEX}/works?search=${q}${buildFilter([oa])}&per_page=60&select=${SELECT}&mailto=${MAILTO}`,
       signal
     );
   }
 
   // influential: 관련 풀 안에서 피인용수 상위 25편
   const influential: RawPaper[] = (influentialRes.results || [])
-    .slice() // relevance 순서 보존용 복사
+    .slice()
     .sort((a: OAWork, b: OAWork) => b.cited_by_count - a.cited_by_count)
     .slice(0, 25)
     .map(toRaw);
 
-  // latest: 관련 풀 안에서 (미래 날짜 제외) 가장 최신 10편
+  // latest: 관련성 상위 25편 중에서 (미래 날짜 제외) 가장 최신 10편
+  //  → 관련성 필터 후 최신순으로 정렬해 "관련 있는 최신 논문" 정확도를 높인다
   const today = todayISO();
   const latest: RawPaper[] = (latestRes.results || [])
+    .slice(0, 25)
     .filter((w: OAWork) => (w.publication_date || "0") <= today)
     .sort((a: OAWork, b: OAWork) =>
       (b.publication_date || "").localeCompare(a.publication_date || "")
